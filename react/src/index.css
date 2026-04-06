@@ -1,0 +1,18 @@
+:root {
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  background: linear-gradient(180deg, #f8fbff 0%, #f6f8fc 100%);
+  color: #111827;
+  font-family: 'Segoe UI', Arial, sans-serif;
+}
+
+#root {
+  padding: 0;
+}

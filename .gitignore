@@ -1,0 +1,41 @@
+# Python bytecode / caches
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+coverage.xml
+htmlcov/
+
+# Environments
+.env
+.env.*
+!.env.example
+react/.env
+react/.env.*
+!react/.env.example
+venv/
+.venv/
+env/
+.python-version
+
+# Packaging / build
+build/
+dist/
+*.egg-info/
+pip-wheel-metadata/
+
+# Jupyter / notebooks (just in case)
+.ipynb_checkpoints/
+
+# OS / editor
+.DS_Store
+.idea/
+.vscode/
+.cursor/
+
+# Logs
+*.log
+
