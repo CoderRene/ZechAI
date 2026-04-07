@@ -1,39 +1,51 @@
-import os
-
 from fastapi import WebSocket
 from google.adk.agents import LlmAgent, RunConfig
 from google.adk.agents.run_config import StreamingMode
 from google.adk.models.lite_llm import LiteLlm
 from google.genai import types
 
-_lmstudio_api_base = os.getenv(
-    "LM_STUDIO_API_BASE",
-    "http://192.168.254.117:3002/v1",
-)
-_lmstudio_api_key = os.getenv("LM_STUDIO_API_KEY")
+from utils import env
 
-_qwen_model_llm_kwargs = {
-    "model": os.getenv("QWEN_MODEL", "openai/local-model"),
-    "api_base": _lmstudio_api_base,
-}
 
-_deepseek_model_llm_kwargs = {
-    "model": os.getenv("DEEPSEEK_MODEL", "openai/local-model"),
-    "api_base": _lmstudio_api_base,
-}
+def build_llm_from_env() -> LiteLlm:
+    """
+    Build a LiteLLM-backed model from env.
 
-# Only pass `api_key` when provided.
-# LiteLLM validates provider tokens; using placeholder values breaks auth.
-if _lmstudio_api_key:
-    _qwen_model_llm_kwargs["api_key"] = _lmstudio_api_key
-    _deepseek_model_llm_kwargs["api_key"] = _lmstudio_api_key
+    Providers:
+    - lmstudio: OpenAI-compatible endpoint (default)
+    - google: Gemini via Google AI Studio API key
+    """
 
-qwen_model = LiteLlm(**_qwen_model_llm_kwargs)
-deepseek_model = LiteLlm(**_deepseek_model_llm_kwargs)
+    provider = (env("LLM_PROVIDER", "lmstudio") or "lmstudio").lower()
+
+    if provider == "google":
+        # LiteLLM expects Gemini models like: gemini/gemini-2.0-flash
+        # Accept either GOOGLE_API_KEY or GEMINI_API_KEY for convenience.
+        api_key = env("GOOGLE_API_KEY")
+        if not api_key:
+            raise RuntimeError(
+                "LLM_PROVIDER is set to google but no GOOGLE_API_KEY was provided."
+            )
+        model = env("GOOGLE_MODEL", "gemini/gemini-2.0-flash")
+        return LiteLlm(model=model, api_key=api_key)
+
+    # Default: LM Studio (or any OpenAI-compatible server)
+    api_base = env("LM_STUDIO_API_BASE", "http://127.0.0.1:3002/v1")
+    model = env("QWEN_MODEL", "openai/local-model")
+    api_key = env("LM_STUDIO_API_KEY")
+
+    llm_kwargs: dict[str, str] = {"model": model, "api_base": api_base}
+    # Only pass `api_key` when provided.
+    # LiteLLM validates provider tokens; using placeholder values breaks auth.
+    if api_key:
+        llm_kwargs["api_key"] = api_key
+    return LiteLlm(**llm_kwargs)
+
+default_model = build_llm_from_env()
 
 intent_understanding_agent = LlmAgent(
     name="IntentUnderstandingAgent",
-    model=qwen_model,
+    model=default_model,
     instruction="""
     You are part of an agentic workflow that transforms vague product tickets into structured, development-ready plans.
     This is your role:
@@ -50,7 +62,7 @@ intent_understanding_agent = LlmAgent(
 
 gap_detection_agent = LlmAgent(
     name="GapDetectionAgent",
-    model=qwen_model,
+    model=default_model,
     instruction="""
     You are part of an agentic workflow that transforms vague product tickets into structured, development-ready plans.
     This is your role:
@@ -76,7 +88,7 @@ gap_detection_agent = LlmAgent(
 
 specification_generation_agent = LlmAgent(
     name="SpecificationGenerationAgent",
-    model=qwen_model,
+    model=default_model,
     instruction="""
     You are part of an agentic workflow that transforms vague product tickets into structured, development-ready plans.
     This is your role:

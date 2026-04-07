@@ -58,8 +58,12 @@ By default the API listens on `http://127.0.0.1:8000`.
 
 | Variable | Purpose |
 |----------|---------|
+| `LLM_PROVIDER` | `lmstudio` (default) or `google` (Gemini / AI Studio) |
 | `LM_STUDIO_API_BASE` | OpenAI-compatible base URL (e.g. `http://host:port/v1`) |
 | `LM_STUDIO_API_KEY` | Optional; omit if the server needs no auth |
+| `LM_STUDIO_MODEL` | Optional; model id when using `LLM_PROVIDER=lmstudio` |
+| `GOOGLE_API_KEY` | Required when using `LLM_PROVIDER=google` |
+| `GOOGLE_MODEL` | Optional; Gemini model id (default `gemini/gemini-2.0-flash`) |
 | `QWEN_MODEL` | LiteLLM model id (default `openai/local-model`) |
 | `DEEPSEEK_MODEL` | Reserved for alternate routing in `agents.py` |
 | `HOST`, `PORT`, `RELOAD` | Optional overrides for `run_server.sh` |
