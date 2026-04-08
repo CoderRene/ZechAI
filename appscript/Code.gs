@@ -95,5 +95,7 @@ function writeCell(r1, c1, r2, c2, value) {
   const range = sheet.getRange(r1, c1, r2, c2);
   if (!range) return null;
 
+  range.setWrapStrategy(SpreadsheetApp.WrapStrategy.CLIP);
   range.setValue(value);
+  sheet.setRowHeightsForced(r1, r2, 200);
 }
