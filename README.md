@@ -1,4 +1,4 @@
-# RTM-to-Spec Agent
+# ZechAI
 
 Google Sheets sidebar that turns **requirements / RTM-style rows** into **enhanced technical specifications**. A React UI runs inside Apps Script, talks to a **FastAPI** backend over **WebSocket**, and uses **Google ADK** with a sequential multi-agent pipeline (intent understanding → gap detection → specification generation) backed by **LiteLLM** (e.g. LM Studio or any OpenAI-compatible server).
 
