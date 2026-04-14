@@ -99,6 +99,7 @@ export async function gasReadCell(row: number, col: number): Promise<string> {
   })
 }
 
+/** r2/c2 are row and column counts (Sheet.getRange row/col dimensions), not end indices. */
 export async function gasWriteCell(
   r1: number,
   c1: number,

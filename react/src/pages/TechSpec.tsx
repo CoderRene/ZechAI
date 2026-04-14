@@ -1,15 +1,17 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import SetupColumn from '../components/SetupColumn'
-import SetupRow from '../components/SetupRow'
+import ConnectionStatus from '../components/ConnectionStatus/ConnectionStatus'
+import EnhanceText from '../components/EnhanceText/EnhanceText'
+import Loading from '../components/Loading/Loading'
+import SetupColumn from '../components/SetupColumn/SetupColumn'
+import SetupRow from '../components/SetupRow/SetupRow'
 import { resolveWsSpecUrl } from '../lib/clientEnv'
 import {
 	gasGetActiveSelection,
-	gasGetActiveSheetName,
 	gasGetRows,
 	gasGetValues,
 	gasReadCell,
 	gasShowSidebar,
-	gasWriteCell,
+	gasWriteCell
 } from '../lib/gas'
 import {
 	safeLoadSelectedHeaders,
@@ -18,30 +20,12 @@ import {
 	type TrackedHeader,
 } from '../lib/selectedHeadersStorage'
 import { newSessionId } from '../lib/session'
-import { useSpecSocket, type StatusVariant } from '../lib/useSpecSocket'
-import './Home.css'
+import { useSpecSocket } from '../lib/useSpecSocket'
+import { isSheetSwitch } from '../utils/util'
+import './main.css'
 
 const USER_ID = 'api-user'
-
-async function isSheetSwitch(expectedSheetName: string): Promise<boolean> {
-	const name = String((await gasGetActiveSheetName()) || '').trim()
-	return !!(name && name !== expectedSheetName)
-}
-
-function statusVariantClass(v: StatusVariant): string {
-	switch (v) {
-		case 'connecting':
-			return 'is-connecting'
-		case 'connected':
-			return 'is-connected'
-		case 'warning':
-			return 'is-warning'
-		case 'error':
-			return 'is-error'
-		default:
-			return 'is-connecting'
-	}
-}
+const DEFAULT_ENHANCE_TXT = 'Click "Enhance" to enhance the selected technical specifications'
 
 export default function Home() {
 	const wsUrl = resolveWsSpecUrl()
@@ -65,9 +49,7 @@ export default function Home() {
 	const [settingsOpen, setSettingsOpen] = useState(false)
 	const [sheetSwitchBlock, setSheetSwitchBlock] = useState(false)
 
-	const [enhanceTxt, setEnhanceTxt] = useState(
-		'Click "Enhance" to enhance the selected technical specifications'
-	)
+	const [enhanceTxt, setEnhanceTxt] = useState(DEFAULT_ENHANCE_TXT)
 	const [enhanceProgress, setEnhanceProgress] = useState('')
 	const [enhanceBusy, setEnhanceBusy] = useState(false)
 	const [blurHidden, setBlurHidden] = useState(true)
@@ -159,22 +141,25 @@ export default function Home() {
 		setEnhanceTxt('Validating sheet...')
 		setEnhanceProgress('')
 
+		let hasError = false
+
 		try {
 			const switched = await isSheetSwitch(sheetName)
 			if (switched) {
 				setSheetSwitchBlock(true)
 				setEnhanceBusy(false)
-				setEnhanceTxt('Click "Enhance" to enhance the selected technical specifications')
+				setEnhanceTxt(DEFAULT_ENHANCE_TXT)
 				gasShowSidebar()
 				return
 			}
 
-			setEnhanceTxt('Processing prompt...')
+			setEnhanceTxt('Reading selected cell...')
 
 			const activeSelection = await gasGetActiveSelection()
 			if (!activeSelection) {
 				setEnhanceTxt('No active selection.')
 				setEnhanceBusy(false)
+				setTimeout(() => setEnhanceTxt(DEFAULT_ENHANCE_TXT), 2000)
 				return
 			}
 
@@ -193,14 +178,14 @@ export default function Home() {
 					'Warning: No tracked headers are within your current selection.',
 					'warning'
 				)
-				setEnhanceTxt('Click "Enhance" to enhance the selected technical specifications')
+				setEnhanceTxt(DEFAULT_ENHANCE_TXT)
 				setEnhanceBusy(false)
 				return
 			}
 
 			if (trackedColInSelection.length > 1) {
 				setStatusMessage('Oops! we can only enhance one column at a time.', 'warning')
-				setEnhanceTxt('Click "Enhance" to enhance the selected technical specifications')
+				setEnhanceTxt(DEFAULT_ENHANCE_TXT)
 				setEnhanceBusy(false)
 				return
 			}
@@ -223,18 +208,18 @@ export default function Home() {
 				)
 			)
 
+			setEnhanceTxt('Processing prompt...')
 			for (let i = 0; i < tickets.length; i++) {
 				const row = rows[i]
 				var ticket = tickets[i]
-				console.log('additionalDetails', additionalDetails);
-				
+
 				if (additionalDetails.trim() !== '') // only add additional details if it's not empty
 					ticket += `\n\nAdditional Details: ${additionalDetails}`
 
 				setEnhanceProgress(`Enhancing ${i + 1} of ${tickets.length}...`)
 				setBlurHidden(true)
 
-				const result = await sendGenerateSpecOverSocket(ticket, USER_ID, newSessionId(), {
+				const result = await sendGenerateSpecOverSocket('techspec', ticket, USER_ID, newSessionId(), {
 					onChunk: (text) => {
 						setEnhanceTxt(text)
 						const el = scrollRef.current
@@ -249,12 +234,15 @@ export default function Home() {
 				setEnhanceTxt(`Enhanced ${i + 1} ticket out of ${rows.length}...`)
 			}
 		} catch (err) {
+			hasError = true
 			const msg = err instanceof Error ? err.message : String(err)
 			setEnhanceTxt(msg)
+			setTimeout(() => setEnhanceTxt(DEFAULT_ENHANCE_TXT), 2000)
 		} finally {
 			setEnhanceBusy(false)
 			setEnhanceProgress('')
-			setEnhanceTxt('Click "Enhance" to enhance the selected technical specifications')
+			if (!hasError)
+				setEnhanceTxt(DEFAULT_ENHANCE_TXT)
 		}
 	}, [
 		sheetName,
@@ -264,32 +252,18 @@ export default function Home() {
 		setStatusMessage,
 	])
 
-	const displayStatus = socketStatus
-
 	return (
 		<div className="home">
-			<div
-				id="status"
-				className={statusVariantClass(displayStatus.variant)}
-				role="status"
-				aria-live="polite"
-			>
-				{displayStatus.message}
-			</div>
+			<ConnectionStatus
+				status={socketStatus.variant}
+				message={socketStatus.message}
+			/>
 
 			{/* SETUP UI SECTION */}
 			{phase !== 'main' && (
 				<div id="setup-sect">
 					{phase === 'loading' && (
-						<div
-							className="setup-loading"
-							role="status"
-							aria-live="polite"
-							aria-label="Loading setup UI"
-						>
-							<div className="spinner" aria-hidden="true" />
-							<span className="setup-loading-text">Loading...</span>
-						</div>
+						<Loading />
 					)}
 
 					{/* when the user is selecting a row to be a header */}
@@ -366,18 +340,15 @@ export default function Home() {
 						)}
 
 						<label id="enhance-progress">{enhanceProgress}</label>
-						<div className="enh-root-container">
-							<div className={`enh-blur-container${blurHidden ? ' disable' : ''}`} aria-hidden="true" />
-
-							<div className="scroll-container" ref={scrollRef}>
-								<p id="enhance-txt">{enhanceTxt}</p>
-								<div className="scroll-anchor" />
-							</div>
-						</div>
+						<EnhanceText
+							scrollRef={scrollRef}
+							blurHidden={blurHidden}
+							enhanceText={enhanceTxt}
+						/>
 
 						<div id="addtnl-details-container">
-							<textarea 
-								id="addtnl-details-textarea" 
+							<textarea
+								id="addtnl-details-textarea"
 								placeholder='(Optional) Add more details...'
 								value={additionalDetails}
 								disabled={enhanceBusy}

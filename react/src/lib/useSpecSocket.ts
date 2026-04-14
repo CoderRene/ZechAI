@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
-import { resolveWsSpecUrl } from './clientEnv'
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { resolveWsSpecUrl } from './clientEnv';
 
 export type StatusVariant = 'connecting' | 'connected' | 'warning' | 'error'
 
@@ -60,6 +60,7 @@ export function useSpecSocket(wsUrl: string) {
       let hadChunkField = false
       try {
         const parsed = JSON.parse(event.data as string) as Record<string, unknown>
+        
         if (parsed && typeof parsed === 'object') {
           if ('chunk' in parsed) {
             hadChunkField = true
@@ -68,6 +69,10 @@ export function useSpecSocket(wsUrl: string) {
             chunk = String(parsed.text ?? '')
           } else if ('response' in parsed) {
             chunk = String(parsed.response ?? '')
+          } else if ('error' in parsed) {
+            const failed = pendingRef.current.shift()
+            failed?.reject(new Error(`${parsed.error}`))
+            return;
           }
           isComplete = parsed.complete === true
         }
@@ -126,6 +131,7 @@ export function useSpecSocket(wsUrl: string) {
 
   const sendGenerateSpecOverSocket = useCallback(
     (
+      type: 'techspec' | 'testcase',
       ticket: string,
       userId: string,
       sessionId: string,
@@ -140,7 +146,7 @@ export function useSpecSocket(wsUrl: string) {
         streamCallbacksRef.current = stream
         seenFirstChunkRef.current = false
         pendingRef.current.push({ resolve, reject })
-        socket.send(JSON.stringify({ ticket, user_id: userId, session_id: sessionId }))
+        socket.send(JSON.stringify({ type, ticket, user_id: userId, session_id: sessionId }))
       })
     },
     []

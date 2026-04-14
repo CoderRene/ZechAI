@@ -34,6 +34,7 @@ export function safeLoadSelectedHeaders(key: string): TrackedHeader[] {
   }
 }
 
+// Used for TechSpec
 export function safePersistSelectedHeaders(
   key: string,
   sheetName: string,

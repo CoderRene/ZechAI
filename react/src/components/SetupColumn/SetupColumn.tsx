@@ -1,5 +1,5 @@
 import { useCallback, useState, type ReactNode } from 'react'
-import type { TrackedHeader } from '../lib/selectedHeadersStorage'
+import type { TrackedHeader } from '../../lib/selectedHeadersStorage'
 import './SetupColumn.css'
 
 export type { TrackedHeader }

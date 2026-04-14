@@ -1,0 +1,36 @@
+.app-info {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    margin: 0 0 12px;
+    padding: 10px 12px;
+    border-radius: 12px;
+    border: 1px solid #d2e3fc;
+    background: #f5f9ff;
+    color: var(--text);
+    box-shadow: var(--shadow-sm);
+}
+
+.app-info-body {
+    flex: 1;
+    min-width: 0;
+    line-height: 1.4;
+}
+
+.app-info-title {
+    font-size: 12px;
+    font-weight: 600;
+    color: #334155;
+    margin: 0 0 4px;
+}
+
+.app-info-title:last-child {
+    margin-bottom: 0;
+}
+
+.app-info-content {
+    font-size: 12px;
+    font-weight: 500;
+    color: #475569;
+    margin: 0;
+}
