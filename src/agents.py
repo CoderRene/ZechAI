@@ -19,8 +19,6 @@ def build_llm_from_env() -> LiteLlm:
     provider = (env("LLM_PROVIDER", "lmstudio") or "lmstudio").lower()
 
     if provider == "google":
-        # LiteLLM expects Gemini models like: gemini/gemini-2.0-flash
-        # Accept either GOOGLE_API_KEY or GEMINI_API_KEY for convenience.
         api_key = env("GOOGLE_API_KEY")
         if not api_key:
             raise RuntimeError(
@@ -42,6 +40,7 @@ def build_llm_from_env() -> LiteLlm:
     return LiteLlm(**llm_kwargs)
 
 default_model = build_llm_from_env()
+print(f"default model: {default_model}")
 
 intent_understanding_agent = LlmAgent(
     name="IntentUnderstandingAgent",
@@ -77,8 +76,8 @@ gap_detection_agent = LlmAgent(
 
     Example Output Format:
     Gap Resolutions:
-    - Define max file size (e.g., 5MB?)
-    - Define supported formats (JPG, PNG?)
+    - Define max file size (e.g., 5MB?) (NOTE: This is an example only, do not include this in your output)
+    - Define supported formats (JPG, PNG?) (NOTE: This is an example only, do not include this in your output)
     - ...
 
     IMPORTANT: each bullet point should be a single sentence and one liner only.
@@ -97,28 +96,54 @@ specification_generation_agent = LlmAgent(
 
     Example Output Format:
         Description:
-        Implement a feature that allows ...
+        Implement a feature that allows ... (NOTE: This is an example only, do not include this in your output)
 
         User Story:
-        - As a user, I want to be able to ...
+        - As a user, I want to be able to ... (NOTE: This is an example only, do not include this in your output)
 
         Acceptance Criteria:
-        - User can open a camera ...
+        - User can open a camera ... (NOTE: This is an example only, do not include this in your output)
         - ...
 
         Gap Resolutions (IMPORTANT!! Insert the output of the 'GapDetectionAgent' here):
-        - Define max file size (e.g., 5MB?)
+        - Define max file size (e.g., 5MB?) (NOTE: This is an example only, do not include this in your output)
         - ...
 
         Edge Cases:
-        - Camera permission denied
+        - Camera permission denied (NOTE: This is an example only, do not include this in your output)
         - ...
 
         Technical Notes
-        - Use device camera API for capture
+        - Use device camera API for capture (NOTE: This is an example only, do not include this in your output)
         - ...
         
     IMPORTANT: each bullet point should be a single sentence and one liner only.
+    IMPORTANT: Strictly follow the output format.
+    """
+)
+
+test_cases_generation_agent = LlmAgent(
+    name="TestCasesGenerationAgent",
+    model=default_model,
+    instruction="""
+    You are an expert QA engineer who reads a technical specification and produces concrete, executable test cases.
+    Derive cases systematically from the spec: map each acceptance criterion to at least one positive test; add tests for
+    edge cases, error handling, permissions, limits, and failure modes called out in the spec; include integration or
+    API-level checks when the spec describes contracts or data shapes. Each test must state what is being validated in
+    plain language and a single, observable expected outcome—no vague "works correctly" results.
+
+    Example Output Format:
+    Test Case 1
+    - Validate ...
+    - Expected Result: The value of expected result here...
+    ===
+    Test Case 2
+    - ...
+    - Expected Result: The value of expected result here...
+    ===
+
+    IMPORTANT: Number tests sequentially (Test Case 1, 2, …). One primary validation per test; split mixed scenarios.
+    IMPORTANT: Each bullet under a test case should be a single sentence and one line only.
     IMPORTANT: Strictly follow the output format.
     """
 )
@@ -135,8 +160,8 @@ async def call_agent_async(query: str, runner, user_id, session_id, websocket: W
   streaming_started_for_author: set[str] = set()
 
   run_config = RunConfig(streaming_mode=StreamingMode.SSE)
-  # Only stream partial text for this specific sub-agent.
-  stream_only_agent_name = "SpecificationGenerationAgent"
+  # Only stream partial text for these specific sub-agents.
+  stream_only_agent_names = ["SpecificationGenerationAgent", "TestCasesGenerationAgent"]
   collected_chunks = ""
   async for event in runner.run_async(
       user_id=user_id,
@@ -162,7 +187,7 @@ async def call_agent_async(query: str, runner, user_id, session_id, websocket: W
           and event_author
           and event.content
           and event.content.parts
-          and event_author == stream_only_agent_name
+          and event_author in stream_only_agent_names
       ):
           part0 = event.content.parts[0]
           chunk_text = getattr(part0, "text", None)
