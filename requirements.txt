@@ -3,3 +3,4 @@ litellm
 python-dotenv
 fastapi
 uvicorn
+slowapi

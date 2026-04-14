@@ -1,8 +1,15 @@
 function onOpen() {
   SpreadsheetApp.getUi()
     .createMenu("Agents")
-    .addItem("Technical Specification Enhancer Agent", "showSidebar")
+    .addItem("Test Cases Agent", "showSidebar")
     .addToUi();
+}
+
+function showSidebar() {
+  const template = HtmlService.createTemplateFromFile("index");
+  template.sheetName = SpreadsheetApp.getActiveSheet().getName();
+  const html = template.evaluate().setTitle("Test Cases Agent");
+  SpreadsheetApp.getUi().showSidebar(html);
 }
 
 /**
@@ -32,13 +39,6 @@ function escapeHtmlAttribute_(value) {
     .replace(/</g, "&lt;")
     .replace(/>/g, "&gt;")
     .replace(/'/g, "&#39;");
-}
-
-function showSidebar() {
-  const template = HtmlService.createTemplateFromFile("index");
-  template.sheetName = SpreadsheetApp.getActiveSheet().getName();
-  const html = template.evaluate().setTitle("Technical Specification Enhancer Agent");
-  SpreadsheetApp.getUi().showSidebar(html);
 }
 
 function include(filename) {
@@ -95,7 +95,8 @@ function writeCell(r1, c1, r2, c2, value) {
   const range = sheet.getRange(r1, c1, r2, c2);
   if (!range) return null;
 
-  range.setWrapStrategy(SpreadsheetApp.WrapStrategy.CLIP);
+  // Prevent wrap-induced height growth; then restore the exact prior heights.
+  // range.setWrapStrategy(SpreadsheetApp.WrapStrategy.CLIP);
   range.setValue(value);
   sheet.setRowHeightsForced(r1, r2, 200);
 }
