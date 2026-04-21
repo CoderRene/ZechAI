@@ -1,10 +1,12 @@
 from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException, Request, WebSocket, WebSocketDisconnect
+from starlette.websockets import WebSocketState
 from google.adk.agents import SequentialAgent
 from google.adk.runners import Runner
 from google.adk.sessions.in_memory_session_service import InMemorySessionService
 
 from models import TicketIn
+from utils import extract_provider_error
 
 load_dotenv()
 
@@ -94,10 +96,16 @@ async def ws_generate_spec(websocket: WebSocket):
                 await websocket.send_json(
                     {
                         "error": e.message(),
+                        "agent_limit_reached": True,
+                        "error_code": "AGENT_LIMIT_REACHED",
                         "retry_after": e.retry_after_seconds,
                         "complete": True,
                     }
                 )
+                continue
+            except Exception as e:
+                error_payload, _ = extract_provider_error(e)
+                await websocket.send_json(error_payload)
                 continue
 
             await websocket.send_json({"response": response_text, "complete": True})
@@ -105,7 +113,8 @@ async def ws_generate_spec(websocket: WebSocket):
     except WebSocketDisconnect:
         pass
     finally:
-        await websocket.close()
+        if websocket.application_state == WebSocketState.CONNECTED:
+            await websocket.close()
 
 
 @app.post("/generate-spec")
@@ -132,6 +141,14 @@ async def http_generate_spec(request: Request, payload: TicketIn):
     except RateLimitExceeded as e:
         raise HTTPException(
             status_code=429,
-            detail={"error": e.message(), "retry_after": e.retry_after_seconds},
+            detail={
+                "error": e.message(),
+                "agent_limit_reached": True,
+                "error_code": "AGENT_LIMIT_REACHED",
+                "retry_after": e.retry_after_seconds,
+            },
         )
+    except Exception as e:
+        error_payload, status_code = extract_provider_error(e)
+        raise HTTPException(status_code=status_code, detail=error_payload)
     return {"response": response_text}

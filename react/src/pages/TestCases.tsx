@@ -9,7 +9,7 @@ import { resolveWsSpecUrl } from "../lib/clientEnv"
 import { gasGetActiveSelection, gasGetRows, gasGetValues, gasReadCell, gasShowSidebar, gasWriteCell } from "../lib/gas"
 import { safeLoadSelectedHeaders, safePersistSelectedHeaders, selectedHeadersStorageKey, type TrackedHeader } from "../lib/selectedHeadersStorage"
 import { newSessionId } from "../lib/session"
-import { useSpecSocket } from "../lib/useSpecSocket"
+import { AgentLimitReachedError, useSpecSocket } from "../lib/useSpecSocket"
 import { isSheetSwitch } from "../utils/util"
 import './main.css'
 
@@ -201,8 +201,17 @@ export default function TestCases() {
 			setTestCases(cases)
 
 		} catch (err) {
-			const msg = err instanceof Error ? err.message : String(err)
-			setEnhanceTxt(msg)
+			if (err instanceof AgentLimitReachedError) {
+				const retryHint =
+					err.retryAfterSeconds !== null
+						? ` Please retry in ${Math.ceil(err.retryAfterSeconds)}s.`
+						: ''
+				setStatusMessage(`Agent limit reached.${retryHint}`, 'warning')
+				setEnhanceTxt(`${err.message}${retryHint}`)
+			} else {
+				const msg = err instanceof Error ? err.message : String(err)
+				setEnhanceTxt(msg)
+			}
 			setTimeout(() => setEnhanceTxt(DEFAULT_ENHANCE_TXT), 2000)
 		} finally {
 			setEnhanceBusy(false)

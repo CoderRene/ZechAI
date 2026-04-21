@@ -11,6 +11,16 @@ export type StreamCallbacks = {
   onFirstStreamChunk?: () => void
 }
 
+export class AgentLimitReachedError extends Error {
+  readonly retryAfterSeconds: number | null
+
+  constructor(message: string, retryAfterSeconds: number | null = null) {
+    super(message)
+    this.name = 'AgentLimitReachedError'
+    this.retryAfterSeconds = retryAfterSeconds
+  }
+}
+
 function describeClose(ev: CloseEvent): string {
   const code = ev.code
   const reason = ev.reason?.trim() ? ev.reason : 'no reason'
@@ -71,7 +81,29 @@ export function useSpecSocket(wsUrl: string) {
             chunk = String(parsed.response ?? '')
           } else if ('error' in parsed) {
             const failed = pendingRef.current.shift()
-            failed?.reject(new Error(`${parsed.error}`))
+            const message = String(parsed.error ?? 'Unknown error')
+            const providerCode =
+              typeof parsed.provider_error_code === 'number' && Number.isFinite(parsed.provider_error_code)
+                ? parsed.provider_error_code
+                : null
+            const providerStatus =
+              typeof parsed.provider_error_status === 'string' && parsed.provider_error_status.trim()
+                ? parsed.provider_error_status.trim()
+                : null
+            const retryAfter =
+              typeof parsed.retry_after === 'number' && Number.isFinite(parsed.retry_after)
+                ? parsed.retry_after
+                : null
+            const isAgentLimitReached = parsed.agent_limit_reached === true
+            const errorMessage =
+              providerCode !== null || providerStatus
+                ? `${message}${providerStatus ? ` (status: ${providerStatus})` : ''}${providerCode !== null ? ` (code: ${providerCode})` : ''}`
+                : message
+            failed?.reject(
+              isAgentLimitReached
+                ? new AgentLimitReachedError(errorMessage, retryAfter)
+                : new Error(errorMessage)
+            )
             return;
           }
           isComplete = parsed.complete === true
@@ -114,7 +146,7 @@ export function useSpecSocket(wsUrl: string) {
     socket.onclose = (ev) => {
       while (pendingRef.current.length > 0) {
         const p = pendingRef.current.shift()
-        if (p) p.reject(new Error('WebSocket connection closed'))
+        if (p) p.reject(new Error('WebSocket connection closed: ' + describeClose(ev)))
       }
       if (hadConnectedRef.current) {
         setStatus({ message: 'Disconnected', variant: 'warning' })

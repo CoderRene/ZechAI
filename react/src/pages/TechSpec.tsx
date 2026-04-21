@@ -20,7 +20,7 @@ import {
 	type TrackedHeader,
 } from '../lib/selectedHeadersStorage'
 import { newSessionId } from '../lib/session'
-import { useSpecSocket } from '../lib/useSpecSocket'
+import { AgentLimitReachedError, useSpecSocket } from '../lib/useSpecSocket'
 import { isSheetSwitch } from '../utils/util'
 import './main.css'
 
@@ -159,7 +159,7 @@ export default function Home() {
 			if (!activeSelection) {
 				setEnhanceTxt('No active selection.')
 				setEnhanceBusy(false)
-				setTimeout(() => setEnhanceTxt(DEFAULT_ENHANCE_TXT), 2000)
+				setTimeout(() => setEnhanceTxt(DEFAULT_ENHANCE_TXT), 10000)
 				return
 			}
 
@@ -235,9 +235,18 @@ export default function Home() {
 			}
 		} catch (err) {
 			hasError = true
-			const msg = err instanceof Error ? err.message : String(err)
-			setEnhanceTxt(msg)
-			setTimeout(() => setEnhanceTxt(DEFAULT_ENHANCE_TXT), 2000)
+			if (err instanceof AgentLimitReachedError) {
+				const retryHint =
+					err.retryAfterSeconds !== null
+						? ` Please retry in ${Math.ceil(err.retryAfterSeconds)}s.`
+						: ''
+				setStatusMessage(`Agent limit reached.${retryHint}`, 'warning')
+				setEnhanceTxt(`${err.message}${retryHint}`)
+			} else {
+				const msg = err instanceof Error ? err.message : String(err)
+				setEnhanceTxt(msg)
+			}
+			setTimeout(() => setEnhanceTxt(DEFAULT_ENHANCE_TXT), 10000)
 		} finally {
 			setEnhanceBusy(false)
 			setEnhanceProgress('')
@@ -361,7 +370,7 @@ export default function Home() {
 							id="enhance-btn"
 							className={`btn-block${enhanceBusy ? ' is-loading' : ''}`}
 							type="button"
-							disabled={enhanceBusy}
+							disabled={socketStatus.variant !== 'connected' || enhanceBusy}
 							onClick={() => void handleEnhance()}
 						>
 							Enhance ✦
